@@ -8,6 +8,7 @@ import { BufferModule } from './buffer/buffer.module';
 import { ConnectivityModule } from './connectivity/connectivity.module';
 import { OcrBridgeModule } from './ocr/ocr-bridge.module';
 import { DevicesModule } from './devices/devices.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { DevicesModule } from './devices/devices.module';
     MqttBridgeModule,
     ModbusBridgeModule,
     OcrBridgeModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
