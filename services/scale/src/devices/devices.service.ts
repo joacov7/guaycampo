@@ -3,23 +3,9 @@
 // =============================================================================
 
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { DatabaseService } from '@guaycampo/database';
+import { prisma } from '@guaycampo/database';
+import type { ScaleDevice } from '@guaycampo/database';
 import { CreateScaleDeviceDto, UpdateScaleDeviceDto } from '../modbus/dto/scale-device.dto';
-
-export interface ScaleDevice {
-  id: string;
-  name: string;
-  ipAddress: string;
-  port: number;
-  unitId: number;
-  protocol: string;
-  config: Record<string, unknown>;
-  location: string | null;
-  isActive: boolean;
-  tenantId: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 // Runtime status enriched with connection state (not persisted to DB)
 export interface ScaleDeviceStatus extends ScaleDevice {
@@ -33,16 +19,14 @@ export interface ScaleDeviceStatus extends ScaleDevice {
 export class DevicesService {
   private readonly logger = new Logger(DevicesService.name);
 
-  // In-memory runtime status map — reset on restart
+  // In-memory runtime status map — reset on service restart
   private readonly runtimeStatus = new Map<
     string,
     { online: boolean; currentWeightKg: number | null; lastReadAt: string | null; errorMessage: string | null }
   >();
 
-  constructor(private readonly db: DatabaseService) {}
-
   async create(dto: CreateScaleDeviceDto, tenantId: string): Promise<ScaleDevice> {
-    const device = await this.db.scaleDevice.create({
+    const device = await prisma.scaleDevice.create({
       data: {
         name: dto.name,
         ipAddress: dto.ipAddress,
@@ -56,35 +40,33 @@ export class DevicesService {
       },
     });
     this.logger.log(`Created device ${device.id} (${device.name}) for tenant ${tenantId}`);
-    return device as ScaleDevice;
+    return device;
   }
 
   async findAll(tenantId: string): Promise<ScaleDevice[]> {
-    const devices = await this.db.scaleDevice.findMany({
+    return prisma.scaleDevice.findMany({
       where: { tenantId, isActive: true },
       orderBy: { createdAt: 'asc' },
     });
-    return devices as ScaleDevice[];
   }
 
   async findActive(): Promise<ScaleDevice[]> {
-    const devices = await this.db.scaleDevice.findMany({
+    return prisma.scaleDevice.findMany({
       where: { isActive: true },
     });
-    return devices as ScaleDevice[];
   }
 
   async findOne(id: string): Promise<ScaleDevice> {
-    const device = await this.db.scaleDevice.findUnique({ where: { id } });
+    const device = await prisma.scaleDevice.findUnique({ where: { id } });
     if (!device) {
       throw new NotFoundException(`Scale device ${id} not found`);
     }
-    return device as ScaleDevice;
+    return device;
   }
 
   async update(id: string, dto: UpdateScaleDeviceDto, tenantId: string): Promise<ScaleDevice> {
     await this.findOneForTenant(id, tenantId);
-    const updated = await this.db.scaleDevice.update({
+    return prisma.scaleDevice.update({
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
@@ -97,17 +79,16 @@ export class DevicesService {
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
       },
     });
-    return updated as ScaleDevice;
   }
 
   async deactivate(id: string, tenantId: string): Promise<ScaleDevice> {
     await this.findOneForTenant(id, tenantId);
-    const updated = await this.db.scaleDevice.update({
+    const updated = await prisma.scaleDevice.update({
       where: { id },
       data: { isActive: false },
     });
     this.runtimeStatus.delete(id);
-    return updated as ScaleDevice;
+    return updated;
   }
 
   // -------------------------------------------------------------------------
@@ -148,11 +129,6 @@ export class DevicesService {
     });
   }
 
-  getStatus(deviceId: string): ScaleDeviceStatus | null {
-    const status = this.runtimeStatus.get(deviceId);
-    return status ? ({ id: deviceId, ...status } as unknown as ScaleDeviceStatus) : null;
-  }
-
   async getStatusFull(id: string, tenantId: string): Promise<ScaleDeviceStatus> {
     const device = await this.findOneForTenant(id, tenantId);
     const runtime = this.runtimeStatus.get(id) ?? {
@@ -165,10 +141,10 @@ export class DevicesService {
   }
 
   private async findOneForTenant(id: string, tenantId: string): Promise<ScaleDevice> {
-    const device = await this.db.scaleDevice.findFirst({ where: { id, tenantId } });
+    const device = await prisma.scaleDevice.findFirst({ where: { id, tenantId } });
     if (!device) {
       throw new NotFoundException(`Scale device ${id} not found`);
     }
-    return device as ScaleDevice;
+    return device;
   }
 }

@@ -57,6 +57,7 @@ export type {
   ShiftSchedule,
   TruckShift,
   QueuePosition,
+  ScaleDevice,
   ScaleTicket,
   LabSample,
   Silo,
