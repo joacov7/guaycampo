@@ -47,7 +47,7 @@ export interface DriverCalledPayload {
   namespace: '/shifts',
 })
 export class ShiftsGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  @WebSocketServer() server: Server;
+  @WebSocketServer() server!: Server;
 
   private readonly logger = new Logger(ShiftsGateway.name);
 
