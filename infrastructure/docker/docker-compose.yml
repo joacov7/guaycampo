@@ -128,6 +128,42 @@ services:
       - guaycampo-network
 
   # ---------------------------------------------------------------------------
+  # Kong API Gateway (DB-less mode)
+  # ---------------------------------------------------------------------------
+  kong:
+    image: kong:3.8-ubuntu
+    container_name: guaycampo-kong
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.dev.yml
+      KONG_PLUGINS: "bundled,tenant-injector,jwt-validator"
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_LUA_PACKAGE_PATH: "/usr/local/share/lua/5.1/?.lua;;"
+    volumes:
+      - ../../apps/api-gateway/kong.dev.yml:/kong/kong.dev.yml:ro
+      - ../../apps/api-gateway/plugins:/usr/local/share/lua/5.1/kong/plugins/guaycampo:ro
+    ports:
+      - "8000:8000"   # Proxy — all API requests go here
+      - "8001:8001"   # Admin API — localhost only in production
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - guaycampo-network
+
+  # ---------------------------------------------------------------------------
   # Redis Commander
   # ---------------------------------------------------------------------------
   redis-commander:

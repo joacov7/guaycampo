@@ -1,0 +1,354 @@
+_format_version: "3.0"
+_transform: true
+
+# =============================================================================
+# GuayCampo - Kong API Gateway (DB-less / declarative config)
+# Production configuration
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Upstream services
+# -----------------------------------------------------------------------------
+services:
+  - name: auth-service
+    url: http://guaycampo-auth:3001
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 3
+
+  - name: shifts-service
+    url: http://guaycampo-shifts:3002
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 3
+
+  - name: scale-service
+    url: http://guaycampo-scale:3003
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 3
+
+  - name: lab-service
+    url: http://guaycampo-lab:3004
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 3
+
+  - name: silos-service
+    url: http://guaycampo-silos:3005
+    connect_timeout: 5000
+    read_timeout: 30000
+    write_timeout: 30000
+    retries: 3
+
+  - name: billing-service
+    url: http://guaycampo-billing:3006
+    connect_timeout: 5000
+    read_timeout: 60000    # AFIP calls can be slow
+    write_timeout: 60000
+    retries: 1             # Don't retry AFIP — idempotency risk
+
+# -----------------------------------------------------------------------------
+# Routes
+# -----------------------------------------------------------------------------
+routes:
+  # ---------------------------------------------------------------------------
+  # Auth — public endpoints (no JWT required)
+  # ---------------------------------------------------------------------------
+  - name: auth-public
+    service: auth-service
+    paths:
+      - /api/auth/login
+      - /api/auth/register
+      - /api/auth/refresh
+    methods:
+      - POST
+    strip_path: false
+    preserve_host: false
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 10
+          hour: 100
+          policy: redis
+          redis_host: guaycampo-redis
+          redis_port: 6379
+          fault_tolerant: true
+          hide_client_headers: false
+
+  # ---------------------------------------------------------------------------
+  # Auth — protected endpoints
+  # ---------------------------------------------------------------------------
+  - name: auth-protected
+    service: auth-service
+    paths:
+      - /api/auth
+    strip_path: false
+    preserve_host: false
+    plugins:
+      - name: jwt
+        config:
+          key_claim_name: tenantId
+          claims_to_verify:
+            - exp
+          header_names:
+            - Authorization
+          secret_is_base64: false
+          algorithm: HS256
+      - name: rate-limiting
+        config:
+          minute: 10
+          hour: 100
+          policy: redis
+          redis_host: guaycampo-redis
+          redis_port: 6379
+          fault_tolerant: true
+          hide_client_headers: false
+      - name: tenant-injector
+        config: {}
+
+  # ---------------------------------------------------------------------------
+  # Shifts
+  # ---------------------------------------------------------------------------
+  - name: shifts-routes
+    service: shifts-service
+    paths:
+      - /api/shifts
+      - /api/trucks
+      - /api/queue
+    strip_path: false
+    preserve_host: false
+    plugins:
+      - name: jwt
+        config:
+          key_claim_name: tenantId
+          claims_to_verify:
+            - exp
+          header_names:
+            - Authorization
+          secret_is_base64: false
+          algorithm: HS256
+      - name: rate-limiting
+        config:
+          minute: 120
+          hour: 5000
+          policy: redis
+          redis_host: guaycampo-redis
+          redis_port: 6379
+          fault_tolerant: true
+          hide_client_headers: false
+      - name: tenant-injector
+        config: {}
+
+  # ---------------------------------------------------------------------------
+  # Scale
+  # ---------------------------------------------------------------------------
+  - name: scale-routes
+    service: scale-service
+    paths:
+      - /api/scale
+      - /api/tickets
+      - /api/devices
+    strip_path: false
+    preserve_host: false
+    plugins:
+      - name: jwt
+        config:
+          key_claim_name: tenantId
+          claims_to_verify:
+            - exp
+          header_names:
+            - Authorization
+          secret_is_base64: false
+          algorithm: HS256
+      - name: rate-limiting
+        config:
+          minute: 120
+          hour: 5000
+          policy: redis
+          redis_host: guaycampo-redis
+          redis_port: 6379
+          fault_tolerant: true
+          hide_client_headers: false
+      - name: tenant-injector
+        config: {}
+
+  # ---------------------------------------------------------------------------
+  # Lab
+  # ---------------------------------------------------------------------------
+  - name: lab-routes
+    service: lab-service
+    paths:
+      - /api/lab
+      - /api/samples
+    strip_path: false
+    preserve_host: false
+    plugins:
+      - name: jwt
+        config:
+          key_claim_name: tenantId
+          claims_to_verify:
+            - exp
+          header_names:
+            - Authorization
+          secret_is_base64: false
+          algorithm: HS256
+      - name: rate-limiting
+        config:
+          minute: 120
+          hour: 5000
+          policy: redis
+          redis_host: guaycampo-redis
+          redis_port: 6379
+          fault_tolerant: true
+          hide_client_headers: false
+      - name: tenant-injector
+        config: {}
+
+  # ---------------------------------------------------------------------------
+  # Silos
+  # ---------------------------------------------------------------------------
+  - name: silos-routes
+    service: silos-service
+    paths:
+      - /api/silos
+      - /api/readings
+      - /api/alerts
+      - /api/aeration
+      - /api/movements
+    strip_path: false
+    preserve_host: false
+    plugins:
+      - name: jwt
+        config:
+          key_claim_name: tenantId
+          claims_to_verify:
+            - exp
+          header_names:
+            - Authorization
+          secret_is_base64: false
+          algorithm: HS256
+      - name: rate-limiting
+        config:
+          minute: 120
+          hour: 5000
+          policy: redis
+          redis_host: guaycampo-redis
+          redis_port: 6379
+          fault_tolerant: true
+          hide_client_headers: false
+      - name: tenant-injector
+        config: {}
+
+  # ---------------------------------------------------------------------------
+  # Billing — stricter rate limits (AFIP calls are expensive)
+  # ---------------------------------------------------------------------------
+  - name: billing-routes
+    service: billing-service
+    paths:
+      - /api/billing
+      - /api/invoices
+      - /api/liquidations
+      - /api/cpes
+      - /api/account
+    strip_path: false
+    preserve_host: false
+    plugins:
+      - name: jwt
+        config:
+          key_claim_name: tenantId
+          claims_to_verify:
+            - exp
+          header_names:
+            - Authorization
+          secret_is_base64: false
+          algorithm: HS256
+      - name: rate-limiting
+        config:
+          minute: 30
+          hour: 500
+          policy: redis
+          redis_host: guaycampo-redis
+          redis_port: 6379
+          fault_tolerant: true
+          hide_client_headers: false
+      - name: tenant-injector
+        config: {}
+
+  # ---------------------------------------------------------------------------
+  # Health check — no auth
+  # ---------------------------------------------------------------------------
+  - name: health-route
+    service: auth-service
+    paths:
+      - /health
+    methods:
+      - GET
+    strip_path: true
+    preserve_host: false
+
+# -----------------------------------------------------------------------------
+# Global plugins
+# -----------------------------------------------------------------------------
+plugins:
+  # CORS
+  - name: cors
+    config:
+      origins:
+        - "https://*.guaycampo.com"
+        - "http://localhost:3000"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Authorization
+        - Content-Type
+        - X-Tenant-ID
+        - X-Request-ID
+      exposed_headers:
+        - X-RateLimit-Remaining
+        - X-RateLimit-Reset
+      credentials: true
+      max_age: 3600
+
+  # Request correlation ID for distributed tracing
+  - name: correlation-id
+    config:
+      header_name: X-Request-ID
+      generator: uuid#counter
+      echo_downstream: true
+
+  # Structured HTTP logging
+  - name: http-log
+    config:
+      http_endpoint: http://guaycampo-logs:9000/kong-logs
+      method: POST
+      content_type: application/json
+      timeout: 1000
+      keepalive: 60000
+
+  # Global rate limit fallback (per consumer if identified, else per IP)
+  - name: rate-limiting
+    config:
+      minute: 300
+      hour: 10000
+      policy: redis
+      redis_host: guaycampo-redis
+      redis_port: 6379
+      fault_tolerant: true
+      hide_client_headers: false
+
+  # Inject X-Powered-By response header
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - "X-Powered-By: GuayCampo"
