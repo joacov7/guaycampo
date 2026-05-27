@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: guaycampo-scale
+  labels:
+    app: guaycampo-scale
+    app.kubernetes.io/name: guaycampo-scale
+    app.kubernetes.io/component: service
+spec:
+  selector:
+    app: guaycampo-scale
+  ports:
+    - name: http
+      port: 3003
+      targetPort: 3003
+      protocol: TCP
+  type: ClusterIP

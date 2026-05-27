@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: guaycampo-silos
+  labels:
+    app: guaycampo-silos
+    app.kubernetes.io/name: guaycampo-silos
+    app.kubernetes.io/component: service
+spec:
+  selector:
+    app: guaycampo-silos
+  ports:
+    - name: http
+      port: 3005
+      targetPort: 3005
+      protocol: TCP
+    - name: ws
+      port: 3005
+      targetPort: 3005
+      protocol: TCP
+  type: ClusterIP

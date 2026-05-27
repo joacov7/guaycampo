@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guaycampo-silos
+  labels:
+    app: guaycampo-silos
+    app.kubernetes.io/name: guaycampo-silos
+    app.kubernetes.io/component: service
+    version: "1.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: guaycampo-silos
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: guaycampo-silos
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: silos
+          image: guaycampo-silos:latest
+          ports:
+            - containerPort: 3005
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: guaycampo-common-config
+                  key: NODE_ENV
+            - name: PORT
+              value: "3005"
+            - name: TZ
+              valueFrom:
+                configMapKeyRef:
+                  name: guaycampo-common-config
+                  key: TZ
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: guaycampo-common-config
+                  key: LOG_LEVEL
+            - name: AUTH_SERVICE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: guaycampo-common-config
+                  key: AUTH_SERVICE_HOST
+            - name: AUTH_SERVICE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: guaycampo-common-config
+                  key: AUTH_SERVICE_PORT
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: guaycampo-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: guaycampo-secrets
+                  key: redis-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: guaycampo-secrets
+                  key: jwt-secret
+            - name: MQTT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: guaycampo-secrets
+                  key: mqtt-url
+            - name: MQTT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: guaycampo-secrets
+                  key: mqtt-username
+            - name: MQTT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: guaycampo-secrets
+                  key: mqtt-password
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3005
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3005
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values: [guaycampo-silos]
+                topologyKey: kubernetes.io/hostname

@@ -1,0 +1,70 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: guaycampo-ingress
+  labels:
+    app.kubernetes.io/name: guaycampo
+    app.kubernetes.io/component: ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/CERT-ID
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "10"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60
+spec:
+  rules:
+    - host: "app.guaycampo.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: guaycampo-web
+                port:
+                  number: 3000
+    - host: "api.guaycampo.com"
+      http:
+        paths:
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: guaycampo-auth
+                port:
+                  number: 3001
+          - path: /shifts
+            pathType: Prefix
+            backend:
+              service:
+                name: guaycampo-shifts
+                port:
+                  number: 3002
+          - path: /scale
+            pathType: Prefix
+            backend:
+              service:
+                name: guaycampo-scale
+                port:
+                  number: 3003
+          - path: /lab
+            pathType: Prefix
+            backend:
+              service:
+                name: guaycampo-lab
+                port:
+                  number: 3004
+          - path: /silos
+            pathType: Prefix
+            backend:
+              service:
+                name: guaycampo-silos
+                port:
+                  number: 3005

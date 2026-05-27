@@ -2,11 +2,22 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import type { Request, Response } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Health check endpoints (outside the /api global prefix)
+  const httpAdapter = app.getHttpAdapter();
+  httpAdapter.get('/health', (_req: Request, res: Response) => {
+    res.json({ status: 'ok', service: 'auth', timestamp: new Date().toISOString() });
+  });
+  httpAdapter.get('/ready', (_req: Request, res: Response) => {
+    res.json({ status: 'ready', service: 'auth', timestamp: new Date().toISOString() });
+  });
 
   // Global prefix
   app.setGlobalPrefix('api');

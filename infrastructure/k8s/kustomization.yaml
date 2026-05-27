@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Namespace
+  - namespace.yaml
+
+  # ConfigMaps
+  - configmaps/common-config.yaml
+
+  # Secrets template (values injected at deploy time via AWS Secrets Manager)
+  - secrets/secrets-template.yaml
+
+  # Deployments
+  - deployments/auth-deployment.yaml
+  - deployments/shifts-deployment.yaml
+  - deployments/scale-deployment.yaml
+  - deployments/lab-deployment.yaml
+  - deployments/silos-deployment.yaml
+  - deployments/web-deployment.yaml
+
+  # Services
+  - services/auth-service.yaml
+  - services/shifts-service.yaml
+  - services/scale-service.yaml
+  - services/lab-service.yaml
+  - services/silos-service.yaml
+  - services/web-service.yaml
+
+  # Horizontal Pod Autoscalers
+  - hpa/auth-hpa.yaml
+  - hpa/shifts-hpa.yaml
+  - hpa/web-hpa.yaml
+
+  # Ingress (AWS ALB)
+  - ingress/ingress.yaml
+
+images:
+  - name: guaycampo-auth
+    newName: guaycampo-auth
+    newTag: latest
+  - name: guaycampo-shifts
+    newName: guaycampo-shifts
+    newTag: latest
+  - name: guaycampo-scale
+    newName: guaycampo-scale
+    newTag: latest
+  - name: guaycampo-lab
+    newName: guaycampo-lab
+    newTag: latest
+  - name: guaycampo-silos
+    newName: guaycampo-silos
+    newTag: latest
+  - name: guaycampo-web
+    newName: guaycampo-web
+    newTag: latest

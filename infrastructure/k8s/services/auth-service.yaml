@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: guaycampo-auth
+  labels:
+    app: guaycampo-auth
+    app.kubernetes.io/name: guaycampo-auth
+    app.kubernetes.io/component: service
+spec:
+  selector:
+    app: guaycampo-auth
+  ports:
+    - name: http
+      port: 3001
+      targetPort: 3001
+      protocol: TCP
+  type: ClusterIP
