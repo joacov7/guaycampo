@@ -121,12 +121,14 @@ class MainShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: child,
-      bottomNavigationBar: _BottomNav(),
+      bottomNavigationBar: const _BottomNav(),
     );
   }
 }
 
 class _BottomNav extends ConsumerWidget {
+  const _BottomNav();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).matchedLocation;
