@@ -10,9 +10,9 @@ export class WhatsAppService {
   private readonly provider: WhatsAppProvider;
 
   constructor(
-    private readonly evolutionProvider: EvolutionProvider,
-    private readonly twilioProvider: TwilioProvider,
-    private readonly config: ConfigService,
+    evolutionProvider: EvolutionProvider,
+    twilioProvider: TwilioProvider,
+    config: ConfigService,
   ) {
     this.provider =
       config.get<string>('WHATSAPP_PROVIDER') === 'twilio'

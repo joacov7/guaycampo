@@ -19,7 +19,7 @@ export class EvolutionProvider implements WhatsAppProvider {
   private readonly instanceName: string;
   private readonly apiKey: string;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(config: ConfigService) {
     this.baseUrl = config.get<string>('EVOLUTION_API_URL', 'http://localhost:8080');
     this.instanceName = config.get<string>('EVOLUTION_INSTANCE', 'guaycampo');
     this.apiKey = config.get<string>('EVOLUTION_API_KEY', '');

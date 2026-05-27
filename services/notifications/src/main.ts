@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import type { Request, Response } from 'express';
+import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
@@ -12,10 +12,10 @@ async function bootstrap(): Promise<void> {
 
   // Health check endpoints (outside the /api global prefix)
   const httpAdapter = app.getHttpAdapter();
-  httpAdapter.get('/health', (_req: Request, res: Response) => {
+  httpAdapter.get('/health', (_req: ExpressRequest, res: ExpressResponse) => {
     res.json({ status: 'ok', service: 'notifications', timestamp: new Date().toISOString() });
   });
-  httpAdapter.get('/ready', (_req: Request, res: Response) => {
+  httpAdapter.get('/ready', (_req: ExpressRequest, res: ExpressResponse) => {
     res.json({ status: 'ready', service: 'notifications', timestamp: new Date().toISOString() });
   });
 

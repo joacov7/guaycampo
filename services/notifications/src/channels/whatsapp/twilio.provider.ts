@@ -12,13 +12,13 @@ export class TwilioProvider implements WhatsAppProvider {
   private readonly authToken: string;
   private readonly fromNumber: string;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(config: ConfigService) {
     this.accountSid = config.get<string>('TWILIO_ACCOUNT_SID', '');
     this.authToken = config.get<string>('TWILIO_AUTH_TOKEN', '');
     this.fromNumber = config.get<string>('TWILIO_WHATSAPP_FROM', '');
   }
 
-  async sendMessage(phone: string, text: string, _mediaUrl?: string): Promise<ChannelResult> {
+  async sendMessage(phone: string, text: string, mediaUrl?: string): Promise<ChannelResult> {
     const url = `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Messages.json`;
     const credentials = Buffer.from(`${this.accountSid}:${this.authToken}`).toString('base64');
 
@@ -28,8 +28,8 @@ export class TwilioProvider implements WhatsAppProvider {
       Body: text,
     });
 
-    if (_mediaUrl) {
-      body.append('MediaUrl', _mediaUrl);
+    if (mediaUrl) {
+      body.append('MediaUrl', mediaUrl);
     }
 
     const response = await fetch(url, {
@@ -51,8 +51,9 @@ export class TwilioProvider implements WhatsAppProvider {
     return { externalId: data.sid ?? '', status: 'sent' };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async sendDocument(phone: string, documentUrl: string, _filename: string): Promise<ChannelResult> {
-    // Twilio WhatsApp sends documents via MediaUrl
+    // Twilio WhatsApp sends documents as a media URL attachment
     return this.sendMessage(phone, '', documentUrl);
   }
 }
