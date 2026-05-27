@@ -5,9 +5,8 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
-interface HealthResponse {
-  json: (data: unknown) => void;
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RawHandler = (req: any, res: any) => void;
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
@@ -15,10 +14,12 @@ async function bootstrap(): Promise<void> {
 
   // Health check endpoints (outside the /api global prefix)
   const httpAdapter = app.getHttpAdapter();
-  httpAdapter.get('/health', (_req: unknown, res: HealthResponse) => {
+  (httpAdapter.get as (path: string, handler: RawHandler) => void)('/health', (_req, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     res.json({ status: 'ok', service: 'notifications', timestamp: new Date().toISOString() });
   });
-  httpAdapter.get('/ready', (_req: unknown, res: HealthResponse) => {
+  (httpAdapter.get as (path: string, handler: RawHandler) => void)('/ready', (_req, res) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     res.json({ status: 'ready', service: 'notifications', timestamp: new Date().toISOString() });
   });
 
