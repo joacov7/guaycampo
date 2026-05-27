@@ -35,9 +35,9 @@ const navItems: NavItem[] = [
   { href: '/dashboard/turnos', label: 'Turnos', icon: CalendarDays },
   { href: '/dashboard/cola', label: 'Cola Virtual', icon: ListOrdered },
   { href: '/dashboard/camiones', label: 'Camiones', icon: Truck },
-  { href: '/dashboard/balanza', label: 'Balanza', icon: Scale, disabled: true, comingSoon: true },
-  { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical, disabled: true, comingSoon: true },
-  { href: '/dashboard/silos', label: 'Silos', icon: Database, disabled: true, comingSoon: true },
+  { href: '/dashboard/balanza', label: 'Balanza', icon: Scale },
+  { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical },
+  { href: '/dashboard/silos', label: 'Silos', icon: Database },
   { href: '/dashboard/administracion', label: 'Administración', icon: Receipt, disabled: true, comingSoon: true },
 ];
 

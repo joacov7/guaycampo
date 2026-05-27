@@ -5,10 +5,11 @@ import { Ticket, User, Building2, Wheat, CheckCircle2, XCircle, Loader2 } from '
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PlateCapture } from '@/components/balanza/plate-capture';
-import type { IScaleTicket, ScaleStatus } from '@guaycampo/shared-types';
+import { ScaleStatus } from '@guaycampo/shared-types';
+import type { IScaleTicket } from '@guaycampo/shared-types';
 
 interface ActiveTicketCardProps {
-  ticket: IScaleTicket & {
+  ticket: Omit<IScaleTicket, 'vehicle' | 'driver' | 'client'> & {
     vehicle?: { plate: string };
     driver?: { fullName: string };
     client?: { name: string };
@@ -20,19 +21,19 @@ interface ActiveTicketCardProps {
 }
 
 const statusLabels: Record<ScaleStatus, string> = {
-  pendiente: 'Pendiente',
-  pesada_bruta: 'Esperando bruto',
-  pesada_tara: 'Esperando tara',
-  completado: 'Completado',
-  anulado: 'Anulado',
+  [ScaleStatus.PENDIENTE]: 'Pendiente',
+  [ScaleStatus.PESADA_BRUTA]: 'Esperando bruto',
+  [ScaleStatus.PESADA_TARA]: 'Esperando tara',
+  [ScaleStatus.COMPLETADO]: 'Completado',
+  [ScaleStatus.ANULADO]: 'Anulado',
 };
 
 const statusColors: Record<ScaleStatus, string> = {
-  pendiente: 'bg-gray-100 text-gray-600',
-  pesada_bruta: 'bg-yellow-100 text-yellow-700',
-  pesada_tara: 'bg-blue-100 text-blue-700',
-  completado: 'bg-green-100 text-green-700',
-  anulado: 'bg-red-100 text-red-700',
+  [ScaleStatus.PENDIENTE]: 'bg-gray-100 text-gray-600',
+  [ScaleStatus.PESADA_BRUTA]: 'bg-yellow-100 text-yellow-700',
+  [ScaleStatus.PESADA_TARA]: 'bg-blue-100 text-blue-700',
+  [ScaleStatus.COMPLETADO]: 'bg-green-100 text-green-700',
+  [ScaleStatus.ANULADO]: 'bg-red-100 text-red-700',
 };
 
 export function ActiveTicketCard({
@@ -89,7 +90,7 @@ export function ActiveTicketCard({
       )}
 
       {/* Actions */}
-      {(ticket.status === 'pendiente' || ticket.status === 'pesada_bruta') && (
+      {(ticket.status === ScaleStatus.PENDIENTE || ticket.status === ScaleStatus.PESADA_BRUTA) && (
         <div className="flex gap-3">
           {onConfirm && (
             <Button

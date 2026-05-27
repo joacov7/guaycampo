@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { WifiOff, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useActiveTicker } from '@/hooks/use-scale';
-import type { ScaleStatus } from '@guaycampo/shared-types';
+import { ScaleStatus } from '@guaycampo/shared-types';
 
 interface ScaleLiveDisplayProps {
   deviceId: string;
@@ -29,22 +29,22 @@ export function ScaleLiveDisplay({
 }: ScaleLiveDisplayProps) {
   const { liveWeight, isStable, isOnline } = useActiveTicker(deviceId);
 
-  const scaleStatusLabel = !isOnline
-    ? 'OFFLINE'
-    : ticketStatus === 'en_uso' || ticketStatus === 'pesada_bruta' || ticketStatus === 'pesada_tara'
-    ? 'EN USO'
-    : 'LIBRE';
+  const isInUse =
+    ticketStatus === ScaleStatus.PESADA_BRUTA ||
+    ticketStatus === ScaleStatus.PESADA_TARA;
+
+  const scaleStatusLabel = !isOnline ? 'OFFLINE' : isInUse ? 'EN USO' : 'LIBRE';
 
   const scaleStatusColor = !isOnline
     ? 'bg-red-100 text-red-700'
-    : scaleStatusLabel === 'EN USO'
+    : isInUse
     ? 'bg-yellow-100 text-yellow-700'
     : 'bg-green-100 text-green-700';
 
   const showConfirmGross =
-    isOnline && ticketStatus === 'pesada_bruta' && liveWeight !== null;
+    isOnline && ticketStatus === ScaleStatus.PESADA_BRUTA && liveWeight !== null;
   const showConfirmTare =
-    isOnline && ticketStatus === 'pesada_tara' && liveWeight !== null;
+    isOnline && ticketStatus === ScaleStatus.PESADA_TARA && liveWeight !== null;
 
   return (
     <div

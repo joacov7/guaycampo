@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useTicketsToday } from '@/hooks/use-scale';
-import type { IScaleTicket, ScaleStatus } from '@guaycampo/shared-types';
+import { ScaleStatus } from '@guaycampo/shared-types';
+import type { IScaleTicket } from '@guaycampo/shared-types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -22,20 +23,20 @@ const tabs: { key: TabKey; label: string }[] = [
 
 const statusFilterMap: Record<TabKey, ScaleStatus[]> = {
   all: [],
-  active: ['pendiente', 'pesada_bruta', 'pesada_tara'],
-  completed: ['completado'],
-  rejected: ['anulado'],
+  active: [ScaleStatus.PENDIENTE, ScaleStatus.PESADA_BRUTA, ScaleStatus.PESADA_TARA],
+  completed: [ScaleStatus.COMPLETADO],
+  rejected: [ScaleStatus.ANULADO],
 };
 
 const statusBadge: Record<ScaleStatus, { label: string; className: string }> = {
-  pendiente: { label: 'Pendiente', className: 'bg-gray-100 text-gray-600' },
-  pesada_bruta: { label: 'Bruto', className: 'bg-yellow-100 text-yellow-700' },
-  pesada_tara: { label: 'Tara', className: 'bg-blue-100 text-blue-700' },
-  completado: { label: 'Completado', className: 'bg-green-100 text-green-700' },
-  anulado: { label: 'Anulado', className: 'bg-red-100 text-red-700' },
+  [ScaleStatus.PENDIENTE]: { label: 'Pendiente', className: 'bg-gray-100 text-gray-600' },
+  [ScaleStatus.PESADA_BRUTA]: { label: 'Bruto', className: 'bg-yellow-100 text-yellow-700' },
+  [ScaleStatus.PESADA_TARA]: { label: 'Tara', className: 'bg-blue-100 text-blue-700' },
+  [ScaleStatus.COMPLETADO]: { label: 'Completado', className: 'bg-green-100 text-green-700' },
+  [ScaleStatus.ANULADO]: { label: 'Anulado', className: 'bg-red-100 text-red-700' },
 };
 
-interface TicketRow extends IScaleTicket {
+interface TicketRow extends Omit<IScaleTicket, 'vehicle' | 'driver' | 'client'> {
   vehicle?: { plate: string };
   driver?: { fullName: string };
   commodity?: { name: string };

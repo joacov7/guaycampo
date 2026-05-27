@@ -10,12 +10,12 @@ import { useQueueStore } from '@/lib/store';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { IScaleTicket } from '@guaycampo/shared-types';
 
-interface TicketWithDetails extends IScaleTicket {
+type TicketWithDetails = Omit<IScaleTicket, 'vehicle' | 'driver' | 'client'> & {
   vehicle?: { plate: string };
   driver?: { fullName: string };
   client?: { name: string };
   commodity?: { name: string };
-}
+};
 
 export default function BalanzaPage() {
   const { data: devicesData, isLoading: devicesLoading } = useScaleDevices();
