@@ -9,7 +9,7 @@
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": ["./src/*"],
+      "@/*": ["./*"],
       "@guaycampo/shared-types": ["../../packages/shared-types/src/index.ts"]
     },
     "noUnusedLocals": false,
