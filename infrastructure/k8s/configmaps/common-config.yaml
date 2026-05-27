@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: guaycampo-common-config
+  labels:
+    app.kubernetes.io/name: guaycampo
+    app.kubernetes.io/component: config
+data:
+  NODE_ENV: "production"
+  TZ: "America/Argentina/Buenos_Aires"
+  LOG_LEVEL: "info"
+
+  # Auth service
+  AUTH_SERVICE_HOST: "guaycampo-auth"
+  AUTH_SERVICE_PORT: "3001"
+
+  # Shifts service
+  SHIFTS_SERVICE_HOST: "guaycampo-shifts"
+  SHIFTS_SERVICE_PORT: "3002"
+
+  # Scale service
+  SCALE_SERVICE_HOST: "guaycampo-scale"
+  SCALE_SERVICE_PORT: "3003"
+
+  # Lab service
+  LAB_SERVICE_HOST: "guaycampo-lab"
+  LAB_SERVICE_PORT: "3004"
+
+  # Silos service
+  SILOS_SERVICE_HOST: "guaycampo-silos"
+  SILOS_SERVICE_PORT: "3005"
+
+  # JWT expiry (non-secret)
+  JWT_EXPIRES_IN: "15m"
+  JWT_REFRESH_EXPIRES_IN: "7d"
+
+  # Next.js
+  NEXT_TELEMETRY_DISABLED: "1"

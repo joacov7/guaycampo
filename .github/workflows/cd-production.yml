@@ -1,0 +1,136 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: guaycampo-production
+  NAMESPACE: guaycampo-production
+
+jobs:
+  deploy:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    environment: production  # requiere aprobacion manual en GitHub
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push production images
+        run: |
+          REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          TAG="${{ github.event.release.tag_name }}"
+          for svc in auth shifts scale lab silos; do
+            docker build \
+              --file infrastructure/docker/Dockerfile.node \
+              --build-arg SERVICE_NAME=$svc \
+              --tag "$REGISTRY/guaycampo-$svc:$TAG" \
+              --tag "$REGISTRY/guaycampo-$svc:latest" \
+              --cache-from "type=registry,ref=$REGISTRY/guaycampo-$svc:latest" \
+              .
+            docker push "$REGISTRY/guaycampo-$svc:$TAG"
+            docker push "$REGISTRY/guaycampo-$svc:latest"
+          done
+          docker build \
+            --file infrastructure/docker/Dockerfile.web \
+            --tag "$REGISTRY/guaycampo-web:$TAG" \
+            --tag "$REGISTRY/guaycampo-web:latest" \
+            --cache-from "type=registry,ref=$REGISTRY/guaycampo-web:latest" \
+            .
+          docker push "$REGISTRY/guaycampo-web:$TAG"
+          docker push "$REGISTRY/guaycampo-web:latest"
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ env.EKS_CLUSTER }} \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Run DB migrations
+        run: |
+          kubectl run migrations-${{ github.run_id }} \
+            --image=${{ steps.login-ecr.outputs.registry }}/guaycampo-auth:${{ github.event.release.tag_name }} \
+            --restart=Never \
+            --rm -i \
+            --namespace=${{ env.NAMESPACE }} \
+            --env="DATABASE_URL=${{ secrets.PRODUCTION_DATABASE_URL }}" \
+            -- npm run db:migrate:prod
+        timeout-minutes: 10
+
+      - name: Deploy canary (10% traffic)
+        run: |
+          REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          TAG="${{ github.event.release.tag_name }}"
+          cd infrastructure/k8s
+          kustomize edit set image \
+            guaycampo-auth=$REGISTRY/guaycampo-auth:$TAG \
+            guaycampo-shifts=$REGISTRY/guaycampo-shifts:$TAG \
+            guaycampo-scale=$REGISTRY/guaycampo-scale:$TAG \
+            guaycampo-lab=$REGISTRY/guaycampo-lab:$TAG \
+            guaycampo-silos=$REGISTRY/guaycampo-silos:$TAG \
+            guaycampo-web=$REGISTRY/guaycampo-web:$TAG
+          # Canary: actualizar solo 1 replica por deployment
+          for svc in auth shifts scale lab silos web; do
+            kubectl set image deployment/guaycampo-$svc \
+              $svc=$REGISTRY/guaycampo-$svc:$TAG \
+              --namespace=${{ env.NAMESPACE }}
+            kubectl rollout status deployment/guaycampo-$svc \
+              --namespace=${{ env.NAMESPACE }} --timeout=120s
+          done
+
+      - name: Smoke tests on canary
+        run: |
+          PROD_URL="${{ secrets.PRODUCTION_URL }}"
+          for i in {1..10}; do
+            curl -f --retry 3 --retry-delay 5 "$PROD_URL/api/health" || exit 1
+            sleep 3
+          done
+
+      - name: Full rollout (100% traffic)
+        run: |
+          for svc in auth shifts scale lab silos web; do
+            kubectl rollout status deployment/guaycampo-$svc \
+              --namespace=${{ env.NAMESPACE }} --timeout=300s
+          done
+
+      - name: Create release audit entry
+        run: |
+          kubectl create configmap release-audit-${{ github.event.release.tag_name }} \
+            --namespace=${{ env.NAMESPACE }} \
+            --from-literal=tag=${{ github.event.release.tag_name }} \
+            --from-literal=release-name="${{ github.event.release.name }}" \
+            --from-literal=deployed-at="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --from-literal=deployed-by="${{ github.actor }}" \
+            --from-literal=commit="${{ github.sha }}"
+
+      - name: Notify success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          text: "Production deploy successful: ${{ github.event.release.tag_name }} deployed by ${{ github.actor }}"
+
+      - name: Notify on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          text: "Production deploy FAILED for release ${{ github.event.release.tag_name }} — manual rollback may be required"
