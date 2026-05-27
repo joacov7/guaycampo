@@ -1,0 +1,147 @@
+version: '3.9'
+
+# =============================================================================
+# GuayCampo - Docker Compose for local development
+# =============================================================================
+# Usage:
+#   docker compose up -d           Start all services
+#   docker compose down            Stop all services
+#   docker compose down -v         Stop and remove volumes
+#   docker compose logs -f         Tail logs
+# =============================================================================
+
+networks:
+  guaycampo-network:
+    driver: bridge
+    name: guaycampo-network
+
+volumes:
+  guaycampo-postgres-data:
+    name: guaycampo-postgres-data
+  guaycampo-redis-data:
+    name: guaycampo-redis-data
+  guaycampo-emqx-data:
+    name: guaycampo-emqx-data
+  guaycampo-emqx-log:
+    name: guaycampo-emqx-log
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 17
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    container_name: guaycampo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-guaycampo}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-password}
+      POSTGRES_DB: ${DATABASE_NAME:-guaycampo_dev}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    volumes:
+      - guaycampo-postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-guaycampo} -d ${DATABASE_NAME:-guaycampo_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - guaycampo-network
+
+  # ---------------------------------------------------------------------------
+  # Redis 7
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: guaycampo-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - guaycampo-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - guaycampo-network
+
+  # ---------------------------------------------------------------------------
+  # EMQX (MQTT Broker)
+  # ---------------------------------------------------------------------------
+  emqx:
+    image: emqx/emqx:5.6.0
+    container_name: guaycampo-emqx
+    restart: unless-stopped
+    environment:
+      EMQX_NAME: guaycampo-emqx
+      EMQX_HOST: 127.0.0.1
+      EMQX_DASHBOARD__DEFAULT_USERNAME: ${MQTT_USERNAME:-guaycampo}
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${MQTT_PASSWORD:-password}
+      EMQX_ALLOW_ANONYMOUS: "false"
+    ports:
+      - "1883:1883"    # MQTT
+      - "8083:8083"    # MQTT over WebSocket
+      - "8084:8084"    # MQTT over WSS
+      - "8883:8883"    # MQTT over SSL/TLS
+      - "18083:18083"  # EMQX Dashboard
+    volumes:
+      - guaycampo-emqx-data:/opt/emqx/data
+      - guaycampo-emqx-log:/opt/emqx/log
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - guaycampo-network
+
+  # ---------------------------------------------------------------------------
+  # Adminer (Database GUI)
+  # ---------------------------------------------------------------------------
+  adminer:
+    image: adminer:4.8.1
+    container_name: guaycampo-adminer
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - guaycampo-network
+
+  # ---------------------------------------------------------------------------
+  # Redis Commander
+  # ---------------------------------------------------------------------------
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: guaycampo-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: "local:redis:6379:0:${REDIS_PASSWORD:-}"
+      HTTP_USER: ${REDIS_COMMANDER_USER:-admin}
+      HTTP_PASSWORD: ${REDIS_COMMANDER_PASSWORD:-admin}
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - guaycampo-network

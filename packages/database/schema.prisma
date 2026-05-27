@@ -1,0 +1,404 @@
+// =============================================================================
+// GuayCampo - Prisma Schema
+// PostgreSQL with multitenancy support
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// Tenant & Auth
+// =============================================================================
+
+model Tenant {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  cuit      String   @unique
+  plan      String   @default("starter")
+  status    String   @default("active")
+  config    Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  phone        String?
+  fullName     String
+  passwordHash String
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  roleId       String?
+  role         Role?     @relation(fields: [roleId], references: [id])
+  status       String    @default("active")
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([email])
+  @@map("users")
+}
+
+model Role {
+  id          String  @id @default(cuid())
+  name        String
+  permissions Json
+  isSystem    Boolean @default(false)
+  tenantId    String
+
+  users User[]
+
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// =============================================================================
+// Transport
+// =============================================================================
+
+model TransportCompany {
+  id           String   @id @default(cuid())
+  name         String
+  cuit         String
+  address      String?
+  contactPhone String?
+  tenantId     String
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  vehicles Vehicle[]
+  drivers  Driver[]
+
+  @@index([tenantId])
+  @@map("transport_companies")
+}
+
+model Vehicle {
+  id                 String            @id @default(cuid())
+  plate              String
+  plateTrailer       String?
+  vehicleType        String
+  taraKg             Decimal?          @db.Decimal(10, 2)
+  capacityKg         Decimal?          @db.Decimal(10, 2)
+  brand              String?
+  model              String?
+  year               Int?
+  insuranceExp       DateTime?
+  vtvExp             DateTime?
+  tenantId           String
+  transportCompanyId String?
+  transportCompany   TransportCompany? @relation(fields: [transportCompanyId], references: [id])
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  drivers      Driver[]
+  truckShifts  TruckShift[]
+  scaleTickets ScaleTicket[]
+
+  @@index([tenantId])
+  @@index([plate])
+  @@map("vehicles")
+}
+
+model Driver {
+  id                 String            @id @default(cuid())
+  dni                String
+  fullName           String
+  phone              String
+  licenseNumber      String?
+  licenseExp         DateTime?
+  rating             Decimal           @default(5.00) @db.Decimal(3, 2)
+  status             String            @default("active")
+  tenantId           String
+  transportCompanyId String?
+  transportCompany   TransportCompany? @relation(fields: [transportCompanyId], references: [id])
+  vehicleId          String?
+  vehicle            Vehicle?          @relation(fields: [vehicleId], references: [id])
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  truckShifts  TruckShift[]
+  scaleTickets ScaleTicket[]
+
+  @@index([tenantId])
+  @@index([dni])
+  @@map("drivers")
+}
+
+// =============================================================================
+// Clients & Commodities
+// =============================================================================
+
+model Client {
+  id             String   @id @default(cuid())
+  name           String
+  cuit           String
+  clientType     String?
+  address        String?
+  locality       String?
+  province       String?
+  ivaCondition   String?
+  currentAccount Decimal  @default(0) @db.Decimal(15, 2)
+  creditLimit    Decimal?              @db.Decimal(15, 2)
+  tenantId       String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  truckShifts  TruckShift[]
+  scaleTickets ScaleTicket[]
+
+  @@index([tenantId])
+  @@index([cuit])
+  @@map("clients")
+}
+
+model Commodity {
+  id            String  @id @default(cuid())
+  name          String
+  code          String  @unique
+  qualityParams Json?
+  unit          String  @default("kg")
+  tenantId      String
+
+  shiftSchedules ShiftSchedule[]
+  truckShifts    TruckShift[]
+
+  @@index([tenantId])
+  @@map("commodities")
+}
+
+// =============================================================================
+// Shifts & Queue
+// =============================================================================
+
+model ShiftSchedule {
+  id            String    @id @default(cuid())
+  date          DateTime  @db.Date
+  commodityId   String
+  commodity     Commodity @relation(fields: [commodityId], references: [id])
+  operationType String
+  totalSlots    Int
+  usedSlots     Int       @default(0)
+  timeFrom      String?
+  timeTo        String?
+  status        String    @default("open")
+  tenantId      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  truckShifts TruckShift[]
+
+  @@index([tenantId])
+  @@index([date])
+  @@map("shift_schedules")
+}
+
+model TruckShift {
+  id           String        @id @default(cuid())
+  shiftId      String
+  shift        ShiftSchedule @relation(fields: [shiftId], references: [id])
+  vehicleId    String
+  vehicle      Vehicle       @relation(fields: [vehicleId], references: [id])
+  driverId     String
+  driver       Driver        @relation(fields: [driverId], references: [id])
+  clientId     String
+  client       Client        @relation(fields: [clientId], references: [id])
+  commodityId  String
+  commodity    Commodity     @relation(fields: [commodityId], references: [id])
+  estimatedQty Decimal?      @db.Decimal(12, 2)
+  cpeNumber    String?
+  status       String        @default("pendiente")
+  qrCode       String?       @unique
+  checkinAt    DateTime?
+  checkoutAt   DateTime?
+  tenantId     String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  scaleTickets  ScaleTicket[]
+  queuePosition QueuePosition?
+
+  @@index([tenantId])
+  @@index([shiftId])
+  @@index([status])
+  @@map("truck_shifts")
+}
+
+model QueuePosition {
+  id            String     @id @default(cuid())
+  truckShiftId  String     @unique
+  truckShift    TruckShift @relation(fields: [truckShiftId], references: [id])
+  position      Int
+  parkingZone   String?
+  calledAt      DateTime?
+  enteredAt     DateTime?
+  estimatedWait Int?
+  priority      Int        @default(0)
+  tenantId      String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([tenantId])
+  @@index([position])
+  @@map("queue_positions")
+}
+
+// =============================================================================
+// Scale & Lab
+// =============================================================================
+
+model ScaleTicket {
+  id             String      @id @default(cuid())
+  ticketNumber   String      @unique
+  truckShiftId   String?
+  truckShift     TruckShift? @relation(fields: [truckShiftId], references: [id])
+  vehicleId      String
+  vehicle        Vehicle     @relation(fields: [vehicleId], references: [id])
+  driverId       String
+  driver         Driver      @relation(fields: [driverId], references: [id])
+  clientId       String
+  client         Client      @relation(fields: [clientId], references: [id])
+  commodityId    String
+  grossWeight    Decimal?    @db.Decimal(10, 2)
+  grossAt        DateTime?
+  grossPhotoUrl  String?
+  tareWeight     Decimal?    @db.Decimal(10, 2)
+  tareAt         DateTime?
+  tarePhotoUrl   String?
+  netWeight      Decimal?    @db.Decimal(10, 2)
+  plateDetected  String?
+  plateConfirmed String?
+  ocrConfidence  Decimal?    @db.Decimal(5, 4)
+  status         String      @default("pendiente")
+  observations   String?
+  tenantId       String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  labSamples LabSample[]
+
+  @@index([tenantId])
+  @@index([ticketNumber])
+  @@index([status])
+  @@map("scale_tickets")
+}
+
+model LabSample {
+  id             String      @id @default(cuid())
+  sampleNumber   String      @unique
+  scaleTicketId  String
+  scaleTicket    ScaleTicket @relation(fields: [scaleTicketId], references: [id])
+  takenAt        DateTime    @default(now())
+  humidity       Decimal?    @db.Decimal(5, 2)
+  protein        Decimal?    @db.Decimal(5, 2)
+  gluten         Decimal?    @db.Decimal(5, 2)
+  fallingNumber  Int?
+  testWeight     Decimal?    @db.Decimal(6, 2)
+  damagedGrains  Decimal?    @db.Decimal(5, 2)
+  foreignMatter  Decimal?    @db.Decimal(5, 2)
+  brokenGrains   Decimal?    @db.Decimal(5, 2)
+  bonuses        Json?
+  discounts      Json?
+  netAdjustment  Decimal?    @db.Decimal(8, 4)
+  grade          String?
+  status         String      @default("pendiente")
+  rejectionCause String?
+  rawData        Json?
+  tenantId       String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([tenantId])
+  @@index([scaleTicketId])
+  @@map("lab_samples")
+}
+
+// =============================================================================
+// Silos
+// =============================================================================
+
+model Silo {
+  id          String   @id @default(cuid())
+  name        String
+  siloType    String
+  capacityTon Decimal  @db.Decimal(10, 2)
+  currentStock Decimal @default(0) @db.Decimal(10, 2)
+  commodityId String?
+  locationLat Decimal? @db.Decimal(10, 8)
+  locationLng Decimal? @db.Decimal(11, 8)
+  sector      String?
+  status      String   @default("operativo")
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  alerts    SiloAlert[]
+  movements SiloMovement[]
+
+  @@index([tenantId])
+  @@map("silos")
+}
+
+model SiloAlert {
+  id             String    @id @default(cuid())
+  siloId         String
+  silo           Silo      @relation(fields: [siloId], references: [id])
+  alertType      String
+  severity       String
+  message        String
+  value          Decimal?  @db.Decimal(10, 2)
+  threshold      Decimal?  @db.Decimal(10, 2)
+  triggeredAt    DateTime  @default(now())
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  tenantId       String
+
+  @@index([tenantId])
+  @@index([siloId])
+  @@index([severity])
+  @@map("silo_alerts")
+}
+
+model SiloMovement {
+  id            String   @id @default(cuid())
+  siloId        String
+  silo          Silo     @relation(fields: [siloId], references: [id])
+  movementType  String
+  quantityKg    Decimal  @db.Decimal(12, 2)
+  scaleTicketId String?
+  observations  String?
+  tenantId      String
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([siloId])
+  @@map("silo_movements")
+}
