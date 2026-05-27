@@ -1,0 +1,348 @@
+version: '3.9'
+
+# =============================================================================
+# GuayCampo - Docker Compose DEMO
+# Stack completo: infraestructura + 8 servicios NestJS + web app
+# =============================================================================
+# Uso:
+#   cd infrastructure/demo
+#   docker compose -f docker-compose.demo.yml up -d
+# =============================================================================
+
+networks:
+  guaycampo-demo-network:
+    driver: bridge
+    name: guaycampo-demo-network
+
+volumes:
+  postgres-demo-data:
+    name: guaycampo-demo-postgres-data
+  redis-demo-data:
+    name: guaycampo-demo-redis-data
+  emqx-demo-data:
+    name: guaycampo-demo-emqx-data
+  emqx-demo-log:
+    name: guaycampo-demo-emqx-log
+
+services:
+
+  # ─── Infraestructura ────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: guaycampo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: guaycampo
+      POSTGRES_USER: guaycampo
+      POSTGRES_PASSWORD: guaycampo_demo_2024
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-demo-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guaycampo -d guaycampo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - guaycampo-demo-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: guaycampo-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-demo-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - guaycampo-demo-network
+
+  emqx:
+    image: emqx/emqx:5.6.0
+    container_name: guaycampo-emqx
+    restart: unless-stopped
+    environment:
+      EMQX_NAME: guaycampo-emqx
+      EMQX_HOST: 127.0.0.1
+      EMQX_DASHBOARD__DEFAULT_USERNAME: guaycampo
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: guaycampo_demo_2024
+      EMQX_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "1883:1883"
+      - "8083:8083"
+      - "18083:18083"
+    volumes:
+      - emqx-demo-data:/opt/emqx/data
+      - emqx-demo-log:/opt/emqx/log
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - guaycampo-demo-network
+
+  # ─── API Gateway ────────────────────────────────────────────────────────────
+
+  kong:
+    image: kong:3.8-ubuntu
+    container_name: guaycampo-kong
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.dev.yml
+      KONG_PLUGINS: "bundled,tenant-injector,jwt-validator"
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_LUA_PACKAGE_PATH: "/usr/local/share/lua/5.1/?.lua;;"
+    volumes:
+      - ../../apps/api-gateway/kong.dev.yml:/kong/kong.dev.yml:ro
+      - ../../apps/api-gateway/plugins:/usr/local/share/lua/5.1/kong/plugins/guaycampo:ro
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - guaycampo-demo-network
+
+  # ─── Servicios NestJS ────────────────────────────────────────────────────────
+
+  auth:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.node
+      args:
+        SERVICE_NAME: auth
+    image: guaycampo-auth:demo
+    container_name: guaycampo-auth
+    restart: unless-stopped
+    env_file: .env.demo
+    environment:
+      PORT: "3001"
+      AUTH_SERVICE_PORT: "3001"
+      SERVICE_NAME: auth
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - guaycampo-demo-network
+
+  shifts:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.node
+      args:
+        SERVICE_NAME: shifts
+    image: guaycampo-shifts:demo
+    container_name: guaycampo-shifts
+    restart: unless-stopped
+    env_file: .env.demo
+    environment:
+      PORT: "3002"
+      SHIFTS_SERVICE_PORT: "3002"
+      SERVICE_NAME: shifts
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - guaycampo-demo-network
+
+  scale:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.node
+      args:
+        SERVICE_NAME: scale
+    image: guaycampo-scale:demo
+    container_name: guaycampo-scale
+    restart: unless-stopped
+    env_file: .env.demo
+    environment:
+      PORT: "3003"
+      SCALE_SERVICE_PORT: "3003"
+      SERVICE_NAME: scale
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - guaycampo-demo-network
+
+  lab:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.node
+      args:
+        SERVICE_NAME: lab
+    image: guaycampo-lab:demo
+    container_name: guaycampo-lab
+    restart: unless-stopped
+    env_file: .env.demo
+    environment:
+      PORT: "3004"
+      LAB_SERVICE_PORT: "3004"
+      SERVICE_NAME: lab
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - guaycampo-demo-network
+
+  silos:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.node
+      args:
+        SERVICE_NAME: silos
+    image: guaycampo-silos:demo
+    container_name: guaycampo-silos
+    restart: unless-stopped
+    env_file: .env.demo
+    environment:
+      PORT: "3005"
+      SILOS_SERVICE_PORT: "3005"
+      SERVICE_NAME: silos
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      emqx:
+        condition: service_started
+    networks:
+      - guaycampo-demo-network
+
+  billing:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.node
+      args:
+        SERVICE_NAME: billing
+    image: guaycampo-billing:demo
+    container_name: guaycampo-billing
+    restart: unless-stopped
+    env_file: .env.demo
+    environment:
+      PORT: "3006"
+      BILLING_SERVICE_PORT: "3006"
+      SERVICE_NAME: billing
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - guaycampo-demo-network
+
+  notifications:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.node
+      args:
+        SERVICE_NAME: notifications
+    image: guaycampo-notifications:demo
+    container_name: guaycampo-notifications
+    restart: unless-stopped
+    env_file: .env.demo
+    environment:
+      PORT: "3007"
+      NOTIFICATIONS_SERVICE_PORT: "3007"
+      SERVICE_NAME: notifications
+    ports:
+      - "3007:3007"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - guaycampo-demo-network
+
+  # ─── Web App ─────────────────────────────────────────────────────────────────
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.web
+    image: guaycampo-web:demo
+    container_name: guaycampo-web
+    restart: unless-stopped
+    env_file: .env.demo
+    environment:
+      PORT: "3000"
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXT_PUBLIC_API_URL: "http://localhost:8000/api"
+      NEXT_PUBLIC_WS_URL: "http://localhost:3002"
+      NEXT_PUBLIC_AUTH_URL: "http://localhost:3001"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth
+      - shifts
+      - kong
+    networks:
+      - guaycampo-demo-network
+
+  # ─── Herramientas de administración ──────────────────────────────────────────
+
+  adminer:
+    image: adminer:4.8.1
+    container_name: guaycampo-adminer
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - guaycampo-demo-network
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: guaycampo-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: "local:redis:6379"
+      HTTP_USER: admin
+      HTTP_PASSWORD: admin
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - guaycampo-demo-network

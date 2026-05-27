@@ -2,6 +2,18 @@
 
 Sistema integral de gestión para acopiadores de granos — turnos, balanza, laboratorio y silos.
 
+## Demo Rápida
+
+```bash
+git clone https://github.com/joacov7/guaycampo.git
+cd guaycampo && git checkout claude/relaxed-thompson-u9Wxq
+bash infrastructure/demo/setup-demo.sh
+```
+
+Accedé en http://localhost:3000 con usuario `admin@demo.guaycampo.com` / `Demo1234!`
+
+---
+
 ## Stack
 
 | Capa | Tecnología |

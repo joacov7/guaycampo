@@ -71,9 +71,12 @@ COPY --from=builder --chown=nestjs:nodejs /app/packages ./packages
 
 USER nestjs
 
+# PORT is set per-service by the orchestrator (e.g. docker-compose env_file)
 EXPOSE 3000
 
+# HEALTHCHECK uses shell form so ${PORT} is expanded from the runtime environment.
+# Each service sets PORT (and its own SERVICE_PORT var) in the compose env_file.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', r => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
+  CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 3000) + '/health', r => r.statusCode === 200 ? process.exit(0) : process.exit(1)).on('error', () => process.exit(1))"
 
 CMD ["node", "dist/main.js"]
