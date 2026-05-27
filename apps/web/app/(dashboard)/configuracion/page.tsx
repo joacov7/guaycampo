@@ -1,142 +1,87 @@
 'use client';
 
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { useTenant } from '@/hooks/use-tenant';
-import { Settings, Building2, User, Bell, Shield } from 'lucide-react';
+import { Settings, Building2, Sliders, DollarSign, FileSpreadsheet, Plug } from 'lucide-react';
+import { PlantProfile } from '@/components/configuracion/plant-profile';
+import { OperatingParams } from '@/components/configuracion/operating-params';
+import { TariffsTable } from '@/components/configuracion/tariffs-table';
+import { AfipConfig } from '@/components/configuracion/afip-config';
+import { IntegrationsConfig } from '@/components/configuracion/integrations-config';
+import { cn } from '@/lib/utils';
 
-interface ConfigSection {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-  content: React.ReactNode;
-}
+type Tab = 'perfil' | 'parametros' | 'tarifas' | 'afip' | 'integraciones';
+
+const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }[] = [
+  { id: 'perfil', label: 'Perfil de la Planta', icon: Building2 },
+  { id: 'parametros', label: 'Parámetros Operativos', icon: Sliders, adminOnly: true },
+  { id: 'tarifas', label: 'Tarifas', icon: DollarSign, adminOnly: true },
+  { id: 'afip', label: 'AFIP', icon: FileSpreadsheet, adminOnly: true },
+  { id: 'integraciones', label: 'Integraciones', icon: Plug, adminOnly: true },
+];
 
 export default function ConfiguracionPage() {
   const { data: session } = useSession();
-  const { tenantName, tenantSlug } = useTenant();
+  const [activeTab, setActiveTab] = useState<Tab>('perfil');
 
-  const sections: ConfigSection[] = [
-    {
-      id: 'empresa',
-      label: 'Empresa',
-      icon: Building2,
-      description: 'Datos del acopiador',
-      content: (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <InfoField label="Nombre" value={tenantName ?? '—'} />
-            <InfoField label="Slug" value={tenantSlug ?? '—'} />
-            <InfoField label="ID de tenant" value={session?.user?.tenantId ?? '—'} />
-            <InfoField label="Plan" value="Professional" />
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: 'usuario',
-      label: 'Mi perfil',
-      icon: User,
-      description: 'Datos de tu cuenta',
-      content: (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <InfoField label="Nombre" value={session?.user?.name ?? '—'} />
-          <InfoField label="Email" value={session?.user?.email ?? '—'} />
-          <InfoField label="Rol" value={session?.user?.role ?? '—'} />
-        </div>
-      ),
-    },
-    {
-      id: 'notificaciones',
-      label: 'Notificaciones',
-      icon: Bell,
-      description: 'Alertas y avisos',
-      content: (
-        <div className="space-y-3">
-          <ToggleRow label="Alertas de cola llena" defaultChecked />
-          <ToggleRow label="Camiones sin turno" defaultChecked />
-          <ToggleRow label="Silo al 90% de capacidad" defaultChecked />
-          <ToggleRow label="Análisis de laboratorio rechazado" />
-        </div>
-      ),
-    },
-    {
-      id: 'permisos',
-      label: 'Seguridad',
-      icon: Shield,
-      description: 'Roles y accesos',
-      content: (
-        <div className="text-center py-6 space-y-2">
-          <Shield className="w-10 h-10 text-gray-200 mx-auto" />
-          <p className="text-sm text-gray-500">Gestión de roles disponible próximamente</p>
-        </div>
-      ),
-    },
-  ];
+  const userRole = session?.user?.role ?? '';
+  const isAdmin = userRole === 'tenant_admin';
+
+  const visibleTabs = TABS.filter((tab) => !tab.adminOnly || isAdmin);
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto animate-fade-in">
+    <div className="space-y-5 max-w-5xl mx-auto animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Settings className="w-6 h-6 text-guay-600" />
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-900">Configuración</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Ajustes de la plataforma</p>
+          <p className="text-sm text-gray-500 mt-0.5">Ajustes de la planta y la plataforma</p>
         </div>
       </div>
 
-      {/* Sections */}
-      <div className="space-y-4">
-        {sections.map((section) => {
-          const Icon = section.icon;
-          return (
-            <div key={section.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-                <div className="w-8 h-8 rounded-lg bg-guay-50 flex items-center justify-center">
-                  <Icon className="w-4 h-4 text-guay-600" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-gray-900">{section.label}</h2>
-                  <p className="text-xs text-gray-400">{section.description}</p>
-                </div>
-              </div>
-              <div className="p-5">{section.content}</div>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* Tab bar */}
+        <div className="flex border-b border-gray-200 overflow-x-auto scrollbar-hide">
+          {visibleTabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors flex-shrink-0',
+                  activeTab === tab.id
+                    ? 'border-guay-600 text-guay-700 bg-guay-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab content */}
+        <div className="p-6">
+          {activeTab === 'perfil' && <PlantProfile />}
+          {activeTab === 'parametros' && isAdmin && <OperatingParams />}
+          {activeTab === 'tarifas' && isAdmin && <TariffsTable />}
+          {activeTab === 'afip' && isAdmin && <AfipConfig />}
+          {activeTab === 'integraciones' && isAdmin && <IntegrationsConfig />}
+
+          {/* Fallback for non-admin trying to access admin-only tabs */}
+          {(['parametros', 'tarifas', 'afip', 'integraciones'] as Tab[]).includes(activeTab) && !isAdmin && (
+            <div className="text-center py-12">
+              <Settings className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">Acceso restringido</p>
+              <p className="text-sm text-gray-400 mt-1">Solo el administrador puede modificar esta sección</p>
             </div>
-          );
-        })}
+          )}
+        </div>
       </div>
     </div>
-  );
-}
-
-function InfoField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="space-y-1">
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className="text-sm text-gray-800 font-medium">{value}</p>
-    </div>
-  );
-}
-
-function ToggleRow({
-  label,
-  defaultChecked,
-}: {
-  label: string;
-  defaultChecked?: boolean;
-}) {
-  return (
-    <label className="flex items-center justify-between cursor-pointer">
-      <span className="text-sm text-gray-700">{label}</span>
-      <div className="relative">
-        <input
-          type="checkbox"
-          className="sr-only peer"
-          defaultChecked={defaultChecked}
-        />
-        <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-guay-500 transition-colors" />
-        <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
-      </div>
-    </label>
   );
 }

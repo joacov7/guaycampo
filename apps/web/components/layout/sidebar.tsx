@@ -17,6 +17,8 @@ import {
   LogOut,
   Settings,
   User,
+  Users,
+  UsersRound,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore, useQueueStore } from '@/lib/store';
@@ -28,6 +30,7 @@ interface NavItem {
   badge?: number;
   disabled?: boolean;
   comingSoon?: boolean;
+  roles?: string[];
 }
 
 const navItems: NavItem[] = [
@@ -38,6 +41,12 @@ const navItems: NavItem[] = [
   { href: '/dashboard/balanza', label: 'Balanza', icon: Scale },
   { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical },
   { href: '/dashboard/silos', label: 'Silos', icon: Database },
+  {
+    href: '/dashboard/clientes',
+    label: 'Clientes',
+    icon: UsersRound,
+    roles: ['tenant_admin', 'jefe_operaciones', 'administrativo'],
+  },
   { href: '/dashboard/administracion', label: 'Administración', icon: Receipt, disabled: true, comingSoon: true },
 ];
 
@@ -57,6 +66,12 @@ export function Sidebar() {
     .join('')
     .toUpperCase()
     .slice(0, 2);
+
+  // Filter nav items by role
+  const visibleNavItems = navItems.filter((item) => {
+    if (!item.roles) return true;
+    return item.roles.includes(userRole);
+  });
 
   return (
     <aside
@@ -95,7 +110,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.href === '/dashboard'
             ? pathname === '/dashboard'
@@ -167,11 +182,32 @@ export function Sidebar() {
       </nav>
 
       {/* Separator */}
-      <div className="px-2 pb-2">
+      <div className="px-2 pb-2 space-y-0.5">
+        {(['tenant_admin', 'jefe_operaciones'] as string[]).includes(userRole) && (
+          <Link
+            href="/dashboard/usuarios"
+            className={cn(
+              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
+              pathname.startsWith('/dashboard/usuarios')
+                ? 'bg-guay-50 text-guay-700 font-medium'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+            )}
+          >
+            <Users className="w-5 h-5 flex-shrink-0 text-gray-400" />
+            {!sidebarCollapsed && <span>Usuarios</span>}
+            {sidebarCollapsed && (
+              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block z-50">
+                <div className="bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                  Usuarios
+                </div>
+              </div>
+            )}
+          </Link>
+        )}
         <Link
           href="/dashboard/configuracion"
           className={cn(
-            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors mb-1',
+            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
             pathname === '/dashboard/configuracion'
               ? 'bg-guay-50 text-guay-700 font-medium'
               : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',

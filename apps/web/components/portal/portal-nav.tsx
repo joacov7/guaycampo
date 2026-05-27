@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, CalendarDays, FileText, DollarSign, Warehouse } from 'lucide-react';
+import { Home, CalendarDays, FileText, DollarSign, Warehouse, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/portal', label: 'Inicio', icon: Home },
   { href: '/portal/mis-turnos', label: 'Mis Turnos', icon: CalendarDays },
   { href: '/portal/mis-tickets', label: 'Mis Tickets', icon: FileText },
+  { href: '/portal/mis-cpes', label: 'Mis CPEs', icon: ClipboardList },
   { href: '/portal/mis-liquidaciones', label: 'Liquidaciones', icon: DollarSign },
   { href: '/portal/mi-stock', label: 'Mi Stock', icon: Warehouse },
 ];
