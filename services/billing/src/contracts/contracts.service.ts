@@ -4,7 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { CreateContractDto, UpdateContractDto } from './dto/create-contract.dto';
 
 export interface ContractFilters {
@@ -216,7 +216,7 @@ export class ContractsService {
       select: { netWeight: true },
     });
 
-    const fulfilledKg = linkedTickets.reduce(
+    const fulfilledKg = linkedTickets.reduce<number>(
       (sum, t) => sum + (Number(t.netWeight) ?? 0),
       0,
     );
