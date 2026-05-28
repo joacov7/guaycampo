@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { PdfService } from '../pdf/pdf.service';
 
 export interface AccountMovementDto {
   clientId: string;
@@ -66,10 +67,29 @@ export interface RegisterPaymentDto {
   movementDate?: string;
 }
 
+export interface AgingRow {
+  clientId: string;
+  clientName: string;
+  current: number;
+  days31to60: number;
+  days61to90: number;
+  over90: number;
+  total: number;
+}
+
+export interface BulkPaymentItem {
+  clientId: string;
+  amount: number;
+  description?: string;
+  documentNumber?: string;
+}
+
 @Injectable()
 export class AccountService {
   private readonly logger = new Logger(AccountService.name);
   private readonly prisma = new PrismaClient();
+
+  constructor(private readonly pdfService: PdfService) {}
 
   async getBalance(clientId: string, tenantId: string): Promise<AccountSummary> {
     const client = await this.prisma.client.findFirst({
@@ -266,5 +286,115 @@ export class AccountService {
       userId,
       tenantId,
     );
+  }
+
+  async getAging(tenantId: string): Promise<AgingRow[]> {
+    const now = new Date();
+    const d30 = new Date(now); d30.setDate(now.getDate() - 30);
+    const d60 = new Date(now); d60.setDate(now.getDate() - 60);
+    const d90 = new Date(now); d90.setDate(now.getDate() - 90);
+
+    // Get all clients with non-zero balance for this tenant
+    const clients = await this.prisma.client.findMany({
+      where: { tenantId, currentAccount: { not: 0 } },
+      select: { id: true, name: true, currentAccount: true },
+    });
+
+    const rows: AgingRow[] = [];
+
+    for (const client of clients) {
+      const movements = await this.prisma.accountMovement.findMany({
+        where: { clientId: client.id, tenantId, debit: { gt: 0 } },
+        orderBy: { movementDate: 'asc' },
+        select: { debit: true, movementDate: true },
+      });
+
+      let current = 0;
+      let days31to60 = 0;
+      let days61to90 = 0;
+      let over90 = 0;
+
+      for (const m of movements) {
+        const debit = Number(m.debit);
+        if (m.movementDate >= d30) {
+          current += debit;
+        } else if (m.movementDate >= d60) {
+          days31to60 += debit;
+        } else if (m.movementDate >= d90) {
+          days61to90 += debit;
+        } else {
+          over90 += debit;
+        }
+      }
+
+      rows.push({
+        clientId: client.id,
+        clientName: client.name,
+        current,
+        days31to60,
+        days61to90,
+        over90,
+        total: Number(client.currentAccount),
+      });
+    }
+
+    return rows;
+  }
+
+  async bulkPayment(
+    payments: BulkPaymentItem[],
+    userId: string,
+    tenantId: string,
+  ): Promise<{ registered: number; errors: Array<{ clientId: string; error: string }> }> {
+    const errors: Array<{ clientId: string; error: string }> = [];
+    let registered = 0;
+
+    // Validate all clients exist before starting
+    const clientIds = payments.map((p) => p.clientId);
+    const existingClients = await this.prisma.client.findMany({
+      where: { id: { in: clientIds }, tenantId },
+      select: { id: true, currentAccount: true },
+    });
+
+    const clientMap = new Map(existingClients.map((c) => [c.id, c]));
+
+    for (const payment of payments) {
+      if (!clientMap.has(payment.clientId)) {
+        errors.push({ clientId: payment.clientId, error: 'Cliente no encontrado' });
+        continue;
+      }
+
+      try {
+        await this.registerPayment(
+          payment.clientId,
+          {
+            amount: payment.amount,
+            description: payment.description ?? 'Pago masivo',
+            documentNumber: payment.documentNumber,
+          },
+          userId,
+          tenantId,
+        );
+        registered++;
+      } catch (err) {
+        errors.push({
+          clientId: payment.clientId,
+          error: err instanceof Error ? err.message : 'Error desconocido',
+        });
+      }
+    }
+
+    this.logger.log(`Pago masivo: ${registered} registrados, ${errors.length} errores`);
+    return { registered, errors };
+  }
+
+  async getStatementPdf(
+    clientId: string,
+    from: Date,
+    to: Date,
+    tenantId: string,
+  ): Promise<Buffer> {
+    const statement = await this.getStatement(clientId, from, to, tenantId);
+    return this.pdfService.generateAccountStatement(statement);
   }
 }

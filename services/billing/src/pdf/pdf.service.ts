@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import type { AccountStatement } from '../account/account.service';
 
 export interface InvoicePdfData {
   invoiceNumber: string;
@@ -325,6 +326,80 @@ export class PdfService {
     doc.font('Helvetica-Bold').fontSize(11);
     doc.text('LÍQUIDO A PAGAR:', x, y);
     doc.text(this.formatCurrency(data.totalToPay, data.currency), 490, y, { align: 'right' });
+  }
+
+  async generateAccountStatement(statement: AccountStatement): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        const buffers: Buffer[] = [];
+
+        doc.on('data', (chunk: Buffer) => buffers.push(chunk));
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
+        doc.on('error', reject);
+
+        // Header
+        doc.fontSize(16).font('Helvetica-Bold').text('ESTADO DE CUENTA CORRIENTE', 50, 50);
+        doc.fontSize(10).font('Helvetica').text(`Cliente: ${statement.clientName}`, 50, 75);
+        doc.text(
+          `Período: ${format(statement.from, 'dd/MM/yyyy', { locale: es })} al ${format(statement.to, 'dd/MM/yyyy', { locale: es })}`,
+        );
+
+        doc.moveTo(50, 105).lineTo(545, 105).stroke();
+        doc.y = 115;
+
+        // Opening balance
+        doc.fontSize(10).font('Helvetica-Bold');
+        doc.text('Saldo inicial:', 50, doc.y);
+        doc.text(this.formatCurrency(statement.openingBalance), 400, doc.y - 12, { width: 145, align: 'right' });
+        doc.moveDown(0.5);
+
+        // Table header
+        const tableTop = doc.y + 8;
+        const col = { date: 50, type: 110, desc: 185, doc: 325, debit: 380, credit: 435, balance: 480 };
+
+        doc.fontSize(8).font('Helvetica-Bold');
+        doc.text('Fecha', col.date, tableTop);
+        doc.text('Tipo', col.type, tableTop);
+        doc.text('Descripción', col.desc, tableTop);
+        doc.text('Doc. N°', col.doc, tableTop);
+        doc.text('Débito', col.debit, tableTop);
+        doc.text('Crédito', col.credit, tableTop);
+        doc.text('Saldo', col.balance, tableTop);
+
+        doc.moveTo(50, tableTop + 13).lineTo(545, tableTop + 13).stroke();
+
+        let y = tableTop + 20;
+        doc.font('Helvetica').fontSize(8);
+
+        for (const m of statement.movements) {
+          if (y > 750) {
+            doc.addPage();
+            y = 50;
+          }
+          doc.text(format(m.movementDate, 'dd/MM/yyyy'), col.date, y);
+          doc.text(m.movementType, col.type, y, { width: 70, lineBreak: false });
+          doc.text(m.description ?? '—', col.desc, y, { width: 135, lineBreak: false });
+          doc.text(m.documentNumber ?? '—', col.doc, y, { width: 50, lineBreak: false });
+          doc.text(m.debit > 0 ? this.formatCurrency(m.debit) : '—', col.debit, y, { width: 50, lineBreak: false });
+          doc.text(m.credit > 0 ? this.formatCurrency(m.credit) : '—', col.credit, y, { width: 50, lineBreak: false });
+          doc.text(this.formatCurrency(m.balanceAfter), col.balance, y, { width: 65, lineBreak: false });
+          y += 16;
+        }
+
+        doc.moveTo(50, y).lineTo(545, y).stroke();
+        y += 10;
+
+        // Closing balance
+        doc.fontSize(10).font('Helvetica-Bold');
+        doc.text('Saldo final:', 50, y);
+        doc.text(this.formatCurrency(statement.closingBalance), 400, y, { width: 145, align: 'right' });
+
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 
   private formatCurrency(amount: number, currency = 'ARS'): string {
