@@ -8,6 +8,8 @@ import { LiquidationsModule } from './liquidations/liquidations.module';
 import { RetentionsModule } from './retentions/retentions.module';
 import { AccountModule } from './account/account.module';
 import { PdfModule } from './pdf/pdf.module';
+import { ContractsModule } from './contracts/contracts.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { PdfModule } from './pdf/pdf.module';
     RetentionsModule,
     AccountModule,
     PdfModule,
+    ContractsModule,
+    ReportsModule,
   ],
 })
 export class AppModule {}

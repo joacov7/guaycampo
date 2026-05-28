@@ -34,19 +34,20 @@ model Tenant {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  phone        String?
-  fullName     String
-  passwordHash String
-  tenantId     String
-  tenant       Tenant    @relation(fields: [tenantId], references: [id])
-  roleId       String?
-  role         Role?     @relation(fields: [roleId], references: [id])
-  status       String    @default("active")
-  lastLogin    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?
+  fullName      String
+  passwordHash  String
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  roleId        String?
+  role          Role?     @relation(fields: [roleId], references: [id])
+  status        String    @default("active")
+  isSuperAdmin  Boolean   @default(false)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([tenantId])
   @@index([email])
@@ -174,6 +175,7 @@ model Client {
 
   truckShifts  TruckShift[]
   scaleTickets ScaleTicket[]
+  contracts    Contract[]
 
   @@index([tenantId])
   @@index([cuit])
@@ -190,6 +192,7 @@ model Commodity {
 
   shiftSchedules ShiftSchedule[]
   truckShifts    TruckShift[]
+  contracts      Contract[]
 
   @@index([tenantId])
   @@map("commodities")
@@ -306,6 +309,8 @@ model ScaleTicket {
   clientId       String
   client         Client      @relation(fields: [clientId], references: [id])
   commodityId    String
+  contractId     String?
+  contract       Contract?   @relation(fields: [contractId], references: [id])
   grossWeight    Decimal?    @db.Decimal(10, 2)
   grossAt        DateTime?
   grossPhotoUrl  String?
@@ -327,7 +332,45 @@ model ScaleTicket {
   @@index([tenantId])
   @@index([ticketNumber])
   @@index([status])
+  @@index([contractId])
   @@map("scale_tickets")
+}
+
+// =============================================================================
+// Contracts
+// =============================================================================
+
+model Contract {
+  id             String    @id @default(cuid())
+  contractNumber String
+  clientId       String
+  client         Client    @relation(fields: [clientId], references: [id])
+  commodityId    String
+  commodity      Commodity @relation(fields: [commodityId], references: [id])
+  contractType   String
+  priceCondition String    @default("fijado")
+  pricePerTon    Decimal?  @db.Decimal(14, 4)
+  currency       String    @default("ARS")
+  quantityTon    Decimal   @db.Decimal(14, 2)
+  fulfilledTon   Decimal   @default(0) @db.Decimal(14, 2)
+  fromDate       DateTime
+  toDate         DateTime
+  status         String    @default("borrador")
+  notes          String?
+  tenantId       String
+  createdBy      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  scaleTickets ScaleTicket[]
+
+  @@unique([contractNumber, tenantId])
+  @@index([tenantId])
+  @@index([clientId, tenantId])
+  @@index([status, tenantId])
+  @@index([toDate])
+  @@index([commodityId, tenantId])
+  @@map("contracts")
 }
 
 model LabSample {

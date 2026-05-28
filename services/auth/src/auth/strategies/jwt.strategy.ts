@@ -9,6 +9,8 @@ export interface JwtPayload {
   email: string;
   tenantId: string;
   roleId?: string;
+  isSuperAdmin?: boolean;
+  impersonatedBy?: string;
   iat?: number;
   exp?: number;
 }
@@ -31,6 +33,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user || user.status !== 'active') {
       throw new UnauthorizedException('User not found or inactive');
     }
-    return payload;
+    return {
+      ...payload,
+      isSuperAdmin: user.isSuperAdmin,
+    };
   }
 }

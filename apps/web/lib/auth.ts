@@ -54,6 +54,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             tenantSlug: data.user.tenant.slug,
             tenantName: data.user.tenant.name,
             role: data.user.role?.name ?? 'operator',
+            isSuperAdmin: (data.user as { isSuperAdmin?: boolean }).isSuperAdmin ?? false,
             accessToken: data.accessToken,
             refreshToken: data.refreshToken,
           };
@@ -75,6 +76,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.tenantSlug = authUser.tenantSlug;
         token.tenantName = authUser.tenantName;
         token.role = authUser.role;
+        token.isSuperAdmin = authUser.isSuperAdmin ?? false;
         token.name = authUser.name;
         token.email = authUser.email;
         token.sub = authUser.id;
@@ -90,6 +92,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         tenantSlug: token.tenantSlug,
         tenantName: token.tenantName,
         role: token.role,
+        isSuperAdmin: token.isSuperAdmin ?? false,
         accessToken: token.accessToken,
         refreshToken: token.refreshToken,
       };

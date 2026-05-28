@@ -22,6 +22,7 @@ export interface AuthUser {
   tenantSlug: string;
   tenantName: string;
   role: string;
+  isSuperAdmin?: boolean;
   accessToken: string;
   refreshToken: string;
 }
@@ -42,6 +43,7 @@ declare module 'next-auth/jwt' {
     tenantSlug: string;
     tenantName: string;
     role: string;
+    isSuperAdmin?: boolean;
   }
 }
 

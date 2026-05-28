@@ -39,6 +39,7 @@ export class AuthService {
       email: user.email,
       tenantId: user.tenantId,
       roleId: user.roleId ?? undefined,
+      isSuperAdmin: (user as User & { isSuperAdmin?: boolean }).isSuperAdmin ?? false,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
