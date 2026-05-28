@@ -12,6 +12,8 @@ import {
   FlaskConical,
   Database,
   Receipt,
+  FileSignature,
+  BarChart3,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -19,6 +21,7 @@ import {
   User,
   Users,
   UsersRound,
+  Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore, useQueueStore } from '@/lib/store';
@@ -45,6 +48,24 @@ const navItems: NavItem[] = [
     href: '/dashboard/clientes',
     label: 'Clientes',
     icon: UsersRound,
+    roles: ['tenant_admin', 'jefe_operaciones', 'administrativo'],
+  },
+  {
+    href: '/dashboard/cuentas-corrientes',
+    label: 'Cuentas Corrientes',
+    icon: Wallet,
+    roles: ['tenant_admin', 'jefe_operaciones', 'administrativo'],
+  },
+  {
+    href: '/dashboard/contratos',
+    label: 'Contratos',
+    icon: FileSignature,
+    roles: ['tenant_admin', 'jefe_operaciones', 'administrativo'],
+  },
+  {
+    href: '/dashboard/reportes',
+    label: 'Reportes',
+    icon: BarChart3,
     roles: ['tenant_admin', 'jefe_operaciones', 'administrativo'],
   },
   { href: '/dashboard/administracion', label: 'Administración', icon: Receipt, disabled: true, comingSoon: true },
