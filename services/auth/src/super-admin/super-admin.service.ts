@@ -55,10 +55,10 @@ export class SuperAdminService {
     `;
 
     const totalTenants = rows.length;
-    const activeTenants = rows.filter((r) => r.status === 'active').length;
-    const totalUsers = rows.reduce((sum, r) => sum + Number(r.active_users), 0);
-    const totalTickets30d = rows.reduce((sum, r) => sum + Number(r.tickets_last_30d), 0);
-    const totalTons30d = rows.reduce((sum, r) => sum + Number(r.tons_last_30d), 0);
+    const activeTenants = rows.filter((r: TenantMetricRow) => r.status === 'active').length;
+    const totalUsers = rows.reduce((sum: number, r: TenantMetricRow) => sum + Number(r.active_users), 0);
+    const totalTickets30d = rows.reduce((sum: number, r: TenantMetricRow) => sum + Number(r.tickets_last_30d), 0);
+    const totalTons30d = rows.reduce((sum: number, r: TenantMetricRow) => sum + Number(r.tons_last_30d), 0);
 
     const planBreakdown: Record<string, number> = {};
     for (const row of rows) {
@@ -89,16 +89,17 @@ export class SuperAdminService {
 
     let result = rows.map(mapMetricRow);
 
+    type MappedRow = ReturnType<typeof mapMetricRow>;
     if (filters?.status) {
-      result = result.filter((r) => r.status === filters.status);
+      result = result.filter((r: MappedRow) => r.status === filters.status);
     }
     if (filters?.plan) {
-      result = result.filter((r) => r.plan === filters.plan);
+      result = result.filter((r: MappedRow) => r.plan === filters.plan);
     }
     if (filters?.search) {
       const q = filters.search.toLowerCase();
       result = result.filter(
-        (r) =>
+        (r: MappedRow) =>
           r.name.toLowerCase().includes(q) ||
           r.slug.toLowerCase().includes(q) ||
           r.cuit.includes(q),
