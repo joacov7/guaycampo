@@ -4,7 +4,8 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { CreateContractDto, UpdateContractDto } from './dto/create-contract.dto';
 
 export interface ContractFilters {
@@ -78,13 +79,13 @@ export class ContractsService {
   }
 
   async findAll(tenantId: string, filters: ContractFilters = {}) {
-    const where: Record<string, unknown> = { tenantId };
+    const where: Prisma.ContractWhereInput = { tenantId };
 
-    if (filters.status) where['status'] = filters.status;
-    if (filters.clientId) where['clientId'] = filters.clientId;
-    if (filters.commodityId) where['commodityId'] = filters.commodityId;
+    if (filters.status) where.status = filters.status;
+    if (filters.clientId) where.clientId = filters.clientId;
+    if (filters.commodityId) where.commodityId = filters.commodityId;
     if (filters.search) {
-      where['OR'] = [
+      where.OR = [
         { contractNumber: { contains: filters.search, mode: 'insensitive' } },
         { client: { name: { contains: filters.search, mode: 'insensitive' } } },
       ];
