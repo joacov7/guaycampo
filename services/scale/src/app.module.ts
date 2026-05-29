@@ -9,6 +9,7 @@ import { ModbusModule } from './modbus/modbus.module';
 import { OcrModule } from './ocr/ocr.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { DevicesModule } from './devices/devices.module';
+import { DryingModule } from './drying/drying.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { DevicesModule } from './devices/devices.module';
     OcrModule,
     TicketsModule,
     DevicesModule,
+    DryingModule,
   ],
 })
 export class AppModule {}

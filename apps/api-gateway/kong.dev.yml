@@ -166,6 +166,7 @@ routes:
       - /api/scale
       - /api/tickets
       - /api/devices
+      - /api/drying
     strip_path: false
     preserve_host: false
     plugins:
@@ -200,6 +201,7 @@ routes:
     paths:
       - /api/lab
       - /api/samples
+      - /api/certificates
     strip_path: false
     preserve_host: false
     plugins:
@@ -274,6 +276,8 @@ routes:
       - /api/liquidations
       - /api/cpes
       - /api/account
+      - /api/remitos
+      - /api/prices
     strip_path: false
     preserve_host: false
     plugins:
