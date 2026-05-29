@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, CalendarDays, FileText, DollarSign, Warehouse, ClipboardList, Wallet, FileSignature, TrendingUp, Award } from 'lucide-react';
+import { Home, CalendarDays, FileText, DollarSign, Warehouse, ClipboardList, Wallet, FileSignature, TrendingUp, Award, ReceiptText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/portal/mi-stock', label: 'Mi Stock', icon: Warehouse },
   { href: '/portal/mi-cuenta', label: 'Mi Cuenta', icon: Wallet },
   { href: '/portal/mis-contratos', label: 'Mis Contratos', icon: FileSignature },
+  { href: '/portal/mis-remitos', label: 'Remitos', icon: ReceiptText },
   { href: '/portal/precios', label: 'Precios', icon: TrendingUp },
   { href: '/portal/mis-certificados', label: 'Certificados', icon: Award },
 ];
