@@ -17,6 +17,7 @@ import {
   FileOutput,
   BarChart3,
   TrendingUp,
+  Award,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
   { href: '/dashboard/balanza', label: 'Balanza', icon: Scale },
   { href: '/dashboard/remitos', label: 'Remitos', icon: FileOutput },
   { href: '/dashboard/laboratorio', label: 'Laboratorio', icon: FlaskConical },
+  { href: '/dashboard/certificados', label: 'Certificados', icon: Award },
   { href: '/dashboard/secado', label: 'Secado', icon: Flame },
   { href: '/dashboard/silos', label: 'Silos', icon: Database },
   {
