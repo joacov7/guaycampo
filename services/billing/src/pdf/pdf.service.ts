@@ -402,6 +402,236 @@ export class PdfService {
     });
   }
 
+  async generateRemitoPdf(params: {
+    remito: {
+      remitoNumber: string;
+      remitoType: string;
+      issueDate: Date;
+      status: string;
+      origin: string | null;
+      destination: string | null;
+      grossWeightKg: unknown;
+      tareWeightKg: unknown;
+      netWeightKg: unknown;
+      notes: string | null;
+      signatureData: string | null;
+      signerName: string | null;
+      signedAt: Date | null;
+      client: { name: string; cuit?: string | null; address?: string | null };
+      commodity: { name: string; code?: string | null };
+      vehicle: { licensePlate: string; brand?: string | null; model?: string | null } | null;
+      driver: { name: string; licenseNumber?: string | null } | null;
+    };
+    tenantName: string;
+    tenantCuit: string;
+  }): Promise<Buffer> {
+    const { remito, tenantName, tenantCuit } = params;
+
+    return new Promise((resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        const buffers: Buffer[] = [];
+
+        doc.on('data', (chunk: Buffer) => buffers.push(chunk));
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
+        doc.on('error', reject);
+
+        const TYPE_LABELS: Record<string, string> = {
+          entrada: 'ENTRADA',
+          salida: 'SALIDA',
+          transferencia: 'TRANSFERENCIA',
+        };
+
+        // ── Header ──────────────────────────────────────────────────────────────
+        doc.fontSize(16).font('Helvetica-Bold').text('GuayCampo', 50, 50);
+        doc.fontSize(10).font('Helvetica').text(tenantName);
+        if (tenantCuit) doc.text(`CUIT: ${tenantCuit}`);
+
+        // Center type box
+        doc
+          .rect(215, 45, 175, 60)
+          .stroke()
+          .fontSize(14)
+          .font('Helvetica-Bold')
+          .text('REMITO', 215, 52, { width: 175, align: 'center' })
+          .fontSize(11)
+          .text(TYPE_LABELS[remito.remitoType] ?? remito.remitoType, 215, 72, {
+            width: 175,
+            align: 'center',
+          });
+
+        // Right: number + date
+        doc
+          .fontSize(11)
+          .font('Helvetica-Bold')
+          .text(`N° ${remito.remitoNumber}`, 400, 50)
+          .fontSize(10)
+          .font('Helvetica')
+          .text(`Fecha: ${format(remito.issueDate, 'dd/MM/yyyy')}`, 400, 68)
+          .text(`Estado: ${remito.status}`, 400, 84);
+
+        doc.moveTo(50, 120).lineTo(545, 120).stroke();
+
+        // ── Client ──────────────────────────────────────────────────────────────
+        let y = 135;
+        doc.fontSize(10).font('Helvetica-Bold').text('Cliente:', 50, y);
+        y += 14;
+        doc.font('Helvetica').text(remito.client.name, 50, y);
+        y += 14;
+        if (remito.client.cuit) {
+          doc.text(`CUIT: ${remito.client.cuit}`, 50, y);
+          y += 14;
+        }
+        if (remito.client.address) {
+          doc.text(`Dirección: ${remito.client.address}`, 50, y);
+          y += 14;
+        }
+
+        // ── Vehicle / Driver ────────────────────────────────────────────────────
+        if (remito.vehicle || remito.driver) {
+          y += 6;
+          doc.moveTo(50, y).lineTo(545, y).stroke();
+          y += 10;
+          doc.fontSize(10).font('Helvetica-Bold').text('Transporte:', 50, y);
+          y += 14;
+          doc.font('Helvetica');
+          if (remito.vehicle) {
+            const vehicleLabel = [remito.vehicle.brand, remito.vehicle.model]
+              .filter(Boolean)
+              .join(' ');
+            doc.text(
+              `Vehículo: ${remito.vehicle.licensePlate}${vehicleLabel ? ` — ${vehicleLabel}` : ''}`,
+              50,
+              y,
+            );
+            y += 14;
+          }
+          if (remito.driver) {
+            doc.text(
+              `Conductor: ${remito.driver.name}${remito.driver.licenseNumber ? ` (Lic. ${remito.driver.licenseNumber})` : ''}`,
+              50,
+              y,
+            );
+            y += 14;
+          }
+        }
+
+        // ── Commodity + Weights ─────────────────────────────────────────────────
+        y += 6;
+        doc.moveTo(50, y).lineTo(545, y).stroke();
+        y += 10;
+        doc.fontSize(10).font('Helvetica-Bold').text('Mercadería:', 50, y);
+        y += 14;
+        doc.font('Helvetica').text(
+          `${remito.commodity.name}${remito.commodity.code ? ` (${remito.commodity.code})` : ''}`,
+          50,
+          y,
+        );
+        y += 18;
+
+        // Weight table
+        const weightCols = { label: 50, value: 200 };
+        doc.fontSize(9).font('Helvetica-Bold');
+        doc.text('Concepto', weightCols.label, y);
+        doc.text('Kg', weightCols.value, y);
+        doc.moveTo(50, y + 13).lineTo(350, y + 13).stroke();
+        y += 18;
+        doc.font('Helvetica');
+
+        const formatKg = (val: unknown) => {
+          const n = Number(val);
+          if (isNaN(n)) return '—';
+          return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(n);
+        };
+
+        const weightRows: Array<[string, unknown]> = [
+          ['Peso bruto', remito.grossWeightKg],
+          ['Tara', remito.tareWeightKg],
+          ['Peso neto', remito.netWeightKg],
+        ];
+        for (const [label, val] of weightRows) {
+          doc.text(label, weightCols.label, y);
+          doc.text(formatKg(val), weightCols.value, y);
+          y += 16;
+        }
+
+        // ── Origin / Destination ────────────────────────────────────────────────
+        if (remito.origin || remito.destination) {
+          y += 6;
+          doc.moveTo(50, y).lineTo(545, y).stroke();
+          y += 10;
+          doc.fontSize(10).font('Helvetica-Bold').text('Trayecto:', 50, y);
+          y += 14;
+          doc.font('Helvetica');
+          if (remito.origin) {
+            doc.text(`Origen: ${remito.origin}`, 50, y);
+            y += 14;
+          }
+          if (remito.destination) {
+            doc.text(`Destino: ${remito.destination}`, 50, y);
+            y += 14;
+          }
+        }
+
+        // ── Notes ───────────────────────────────────────────────────────────────
+        if (remito.notes) {
+          y += 6;
+          doc.moveTo(50, y).lineTo(545, y).stroke();
+          y += 10;
+          doc.fontSize(9).font('Helvetica-Oblique').text(`Observaciones: ${remito.notes}`, 50, y, {
+            width: 495,
+          });
+          y += 24;
+        }
+
+        // ── Signature box ───────────────────────────────────────────────────────
+        y += 10;
+        doc.moveTo(50, y).lineTo(545, y).stroke();
+        y += 15;
+        doc.fontSize(10).font('Helvetica-Bold').text('Firma y conformidad:', 50, y);
+        y += 16;
+
+        if (remito.signatureData && remito.status === 'firmado') {
+          // Render base64 signature image
+          try {
+            const base64Data = remito.signatureData.replace(/^data:image\/\w+;base64,/, '');
+            const imgBuffer = Buffer.from(base64Data, 'base64');
+            doc.image(imgBuffer, 50, y, { width: 200, height: 80 });
+          } catch {
+            doc.rect(50, y, 200, 80).stroke();
+          }
+          y += 90;
+          doc
+            .fontSize(9)
+            .font('Helvetica')
+            .text(`Firmado por: ${remito.signerName ?? ''}`, 50, y);
+          if (remito.signedAt) {
+            y += 13;
+            doc.text(
+              `Fecha de firma: ${format(remito.signedAt, 'dd/MM/yyyy HH:mm', { locale: es })}`,
+              50,
+              y,
+            );
+          }
+        } else {
+          doc.rect(50, y, 200, 80).stroke();
+          y += 90;
+          doc
+            .moveTo(50, y)
+            .lineTo(250, y)
+            .stroke()
+            .fontSize(8)
+            .font('Helvetica')
+            .text('Firma y aclaración', 50, y + 4);
+        }
+
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
   private formatCurrency(amount: number, currency = 'ARS'): string {
     const symbol = currency === 'USD' ? 'U$S ' : '$ ';
     return `${symbol}${Math.abs(amount).toLocaleString('es-AR', {
